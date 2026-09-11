@@ -2,7 +2,7 @@ import Enrollment from "../models/Enrollment.js";
 import Course from "../models/Course.js";
 import Product from "../models/Product.js";
 
-function calculateExpiresAt(access) {
+function calculateExpiresAt(access, startsAt) {
   if (!access || access.type !== "limited") {
     return null;
   }
@@ -13,7 +13,7 @@ function calculateExpiresAt(access) {
     return null;
   }
 
-  const date = new Date();
+  const date = new Date(startsAt);
 
   if (durationUnit === "days") {
     date.setDate(date.getDate() + duration);
@@ -34,6 +34,7 @@ export async function createEnrollmentsFromPaidOrder(order) {
   const results = [];
 
   for (const item of order.items) {
+    // শুধু recorded course-এর জন্য Enrollment তৈরি হবে
     if (item.productType !== "recorded_course") {
       continue;
     }
@@ -52,29 +53,36 @@ export async function createEnrollmentsFromPaidOrder(order) {
       continue;
     }
 
-    const expiresAt = calculateExpiresAt(product.access);
+    const startsAt = new Date();
+
+    const expiresAt = calculateExpiresAt(product.access, startsAt);
 
     const enrollment = await Enrollment.findOneAndUpdate(
       {
         user: order.user,
         course: course._id,
+        sourceType: "purchase",
+        sourceId: order._id,
       },
       {
-        $set: {
-          product: product._id,
-          order: order._id,
-          sourceType: "purchase",
-          sourceId: order._id,
-          accessType: product.access?.type || "lifetime",
-          startsAt: new Date(),
-          expiresAt,
-          status: "active",
-        },
-
         $setOnInsert: {
           user: order.user,
           course: course._id,
-          enrolledAt: new Date(),
+          product: product._id,
+          order: order._id,
+
+          sourceType: "purchase",
+          sourceId: order._id,
+
+          accessType: product.access?.type || "lifetime",
+
+          startsAt,
+
+          expiresAt,
+
+          status: "active",
+
+          enrolledAt: startsAt,
         },
       },
       {
