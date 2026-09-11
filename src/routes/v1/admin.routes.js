@@ -1,0 +1,120 @@
+import { Router } from "express";
+import User from "../../models/User.js";
+import { asyncHandler } from "../../utils/async-handler.js";
+import { ApiError } from "../../utils/api-error.js";
+import { requireAuth, allowRoles } from "../../middlewares/auth.middleware.js";
+import { validate } from "../../middlewares/validate.middleware.js";
+import {
+  createCategorySchema,
+  updateCategorySchema,
+  categoryIdSchema,
+} from "../../validators/category.validator.js";
+import {
+  createCourseSchema,
+  updateCourseSchema,
+  courseIdSchema,
+  createModuleSchema,
+  updateModuleSchema,
+  moduleIdSchema,
+  createLessonSchema,
+  updateLessonSchema,
+  lessonIdSchema,
+} from "../../validators/course.validator.js";
+import {
+  listCategories,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+} from "../../controllers/category.controller.js";
+
+import {
+  createRecordedCourse,
+  listManagedCourses,
+  getManagedCourse,
+  updateRecordedCourse,
+  submitCourseForReview,
+  publishCourse,
+  rejectCourse,
+  archiveCourse,
+  createModule,
+  updateModule,
+  deleteModule,
+  createLesson,
+  updateLesson,
+  deleteLesson,
+} from "../../controllers/course.controller.js";
+
+const router = Router();
+router.use(requireAuth, allowRoles("admin"));
+router.get("/categories", listCategories);
+router.post("/categories", validate(createCategorySchema), createCategory);
+router.patch("/categories/:id", validate(updateCategorySchema), updateCategory);
+router.delete("/categories/:id", validate(categoryIdSchema), deleteCategory);
+router.get("/courses", listManagedCourses);
+router.post("/courses", validate(createCourseSchema), createRecordedCourse);
+router.get("/courses/:id", validate(courseIdSchema), getManagedCourse);
+router.patch(
+  "/courses/:id",
+  validate(updateCourseSchema),
+  updateRecordedCourse,
+);
+router.post(
+  "/courses/:id/submit-review",
+  validate(courseIdSchema),
+  submitCourseForReview,
+);
+router.post("/courses/:id/publish", validate(courseIdSchema), publishCourse);
+router.post("/courses/:id/reject", validate(courseIdSchema), rejectCourse);
+router.post("/courses/:id/archive", validate(courseIdSchema), archiveCourse);
+
+router.post(
+  "/courses/:courseId/modules",
+  validate(createModuleSchema),
+  createModule,
+);
+router.patch("/modules/:moduleId", validate(updateModuleSchema), updateModule);
+router.delete("/modules/:moduleId", validate(moduleIdSchema), deleteModule);
+router.post(
+  "/modules/:moduleId/lessons",
+  validate(createLessonSchema),
+  createLesson,
+);
+router.patch("/lessons/:lessonId", validate(updateLessonSchema), updateLesson);
+router.delete("/lessons/:lessonId", validate(lessonIdSchema), deleteLesson);
+router.patch(
+  "/instructors/:id/status",
+  asyncHandler(async (req, res) => {
+    const { status } = req.body;
+
+    if (!["active", "rejected", "suspended"].includes(status)) {
+      throw new ApiError(400, "INVALID_STATUS", "Invalid instructor status.");
+    }
+
+    const instructor = await User.findOne({
+      _id: req.params.id,
+      role: "instructor",
+    });
+
+    if (!instructor) {
+      throw new ApiError(404, "INSTRUCTOR_NOT_FOUND", "Instructor not found.");
+    }
+
+    instructor.accountStatus = status;
+    await instructor.save();
+
+    res.json({
+      success: true,
+      message: `Instructor status changed to ${status}.`,
+      data: {
+        user: {
+          id: instructor._id,
+          name: instructor.name,
+          email: instructor.email,
+          role: instructor.role,
+          accountStatus: instructor.accountStatus,
+        },
+      },
+    });
+  }),
+);
+export default router;
