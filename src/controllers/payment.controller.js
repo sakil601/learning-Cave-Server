@@ -3,6 +3,7 @@ import Order from "../models/Order.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
 import { createEnrollmentsFromPaidOrder } from "../services/enrollment.service.js";
+import { completePayment } from "../services/payment.service.js";
 
 export const createPayment = asyncHandler(async (req, res) => {
   const { orderId, method, transactionId } = req.body;
@@ -41,46 +42,19 @@ export const createPayment = asyncHandler(async (req, res) => {
 });
 
 export const markPaymentPaid = asyncHandler(async (req, res) => {
-  const payment = await Payment.findById(req.params.id);
-
-  if (!payment) {
-    throw new ApiError(404, "PAYMENT_NOT_FOUND", "Payment not found.");
-  }
-
-  const order = await Order.findById(payment.order);
-
-  if (!order) {
-    throw new ApiError(404, "ORDER_NOT_FOUND", "Order not found.");
-  }
-
-  // Already processed
-  if (payment.status === "paid" && order.paymentStatus === "paid") {
-    return res.json({
-      success: true,
-      message: "Payment was already processed.",
-      data: {
-        payment,
-        order,
-      },
-    });
-  }
-
-  payment.status = "paid";
-  await payment.save();
-
-  order.paymentStatus = "paid";
-  order.status = "confirmed";
-  await order.save();
-
-  const enrollments = await createEnrollmentsFromPaidOrder(order);
+  const result = await completePayment({
+    paymentId: req.params.id,
+  });
 
   res.json({
     success: true,
-    message: "Payment completed and access granted.",
+    message: result.alreadyProcessed
+      ? "Payment was already processed."
+      : "Payment completed and access granted.",
     data: {
-      payment,
-      order,
-      enrollments,
+      payment: result.payment,
+      order: result.order,
+      enrollments: result.enrollments,
     },
   });
 });
@@ -100,43 +74,20 @@ export const verifyManualPayment = asyncHandler(async (req, res) => {
     );
   }
 
-  const order = await Order.findById(payment.order);
-
-  if (!order) {
-    throw new ApiError(404, "ORDER_NOT_FOUND", "Order not found.");
-  }
-
-  if (payment.status === "paid" && order.paymentStatus === "paid") {
-    return res.json({
-      success: true,
-      message: "Payment was already verified.",
-      data: {
-        payment,
-        order,
-      },
-    });
-  }
-
-  payment.status = "paid";
-  payment.verifiedBy = req.user._id;
-  payment.verifiedAt = new Date();
-
-  await payment.save();
-
-  order.paymentStatus = "paid";
-  order.status = "confirmed";
-
-  await order.save();
-
-  const enrollments = await createEnrollmentsFromPaidOrder(order);
+  const result = await completePayment({
+    paymentId: payment._id,
+    verifiedBy: req.user._id,
+  });
 
   res.json({
     success: true,
-    message: "Manual payment verified successfully.",
+    message: result.alreadyProcessed
+      ? "Payment was already verified."
+      : "Manual payment verified successfully.",
     data: {
-      payment,
-      order,
-      enrollments,
+      payment: result.payment,
+      order: result.order,
+      enrollments: result.enrollments,
     },
   });
 });
