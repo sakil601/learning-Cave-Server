@@ -2,7 +2,6 @@ import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
-import { createEnrollmentsFromPaidOrder } from "../services/enrollment.service.js";
 import { completePayment } from "../services/payment.service.js";
 
 export const createPayment = asyncHandler(async (req, res) => {
@@ -107,6 +106,14 @@ export const rejectManualPayment = asyncHandler(async (req, res) => {
     );
   }
 
+  if (payment.status === "paid") {
+    throw new ApiError(
+      400,
+      "PAYMENT_ALREADY_PAID",
+      "A paid payment cannot be rejected.",
+    );
+  }
+
   payment.status = "failed";
   payment.verifiedBy = req.user._id;
   payment.verifiedAt = new Date();
@@ -118,12 +125,16 @@ export const rejectManualPayment = asyncHandler(async (req, res) => {
   if (order) {
     order.paymentStatus = "failed";
     order.status = "pending";
+
     await order.save();
   }
 
   res.json({
     success: true,
     message: "Manual payment rejected.",
-    data: payment,
+    data: {
+      payment,
+      order,
+    },
   });
 });
