@@ -5,7 +5,7 @@ import { completePayment } from "./payment.service.js";
 export async function completeVerifiedGatewayPayment({
   paymentId,
   transactionId,
-  gatewayResponse = null,
+  gatewayReference = null,
 }) {
   const payment = await Payment.findById(paymentId);
 
@@ -17,7 +17,7 @@ export async function completeVerifiedGatewayPayment({
     throw new ApiError(
       400,
       "INVALID_PAYMENT_METHOD",
-      "Manual payments cannot be completed through gateway callback.",
+      "Manual payments cannot be completed through a gateway callback.",
     );
   }
 
@@ -25,8 +25,8 @@ export async function completeVerifiedGatewayPayment({
     payment.transactionId = transactionId;
   }
 
-  if (gatewayResponse) {
-    payment.gatewayResponse = gatewayResponse;
+  if (gatewayReference) {
+    payment.gatewayReference = gatewayReference;
   }
 
   await payment.save();
