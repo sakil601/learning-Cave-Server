@@ -53,16 +53,24 @@ export const markPaymentPaid = asyncHandler(async (req, res) => {
     throw new ApiError(404, "ORDER_NOT_FOUND", "Order not found.");
   }
 
-  if (payment.status !== "paid") {
-    payment.status = "paid";
-    await payment.save();
+  // Already processed
+  if (payment.status === "paid" && order.paymentStatus === "paid") {
+    return res.json({
+      success: true,
+      message: "Payment was already processed.",
+      data: {
+        payment,
+        order,
+      },
+    });
   }
 
-  if (order.paymentStatus !== "paid") {
-    order.paymentStatus = "paid";
-    order.status = "confirmed";
-    await order.save();
-  }
+  payment.status = "paid";
+  await payment.save();
+
+  order.paymentStatus = "paid";
+  order.status = "confirmed";
+  await order.save();
 
   const enrollments = await createEnrollmentsFromPaidOrder(order);
 
@@ -74,5 +82,97 @@ export const markPaymentPaid = asyncHandler(async (req, res) => {
       order,
       enrollments,
     },
+  });
+});
+
+export const verifyManualPayment = asyncHandler(async (req, res) => {
+  const payment = await Payment.findById(req.params.id);
+
+  if (!payment) {
+    throw new ApiError(404, "PAYMENT_NOT_FOUND", "Payment not found.");
+  }
+
+  if (payment.method !== "manual") {
+    throw new ApiError(
+      400,
+      "INVALID_PAYMENT_METHOD",
+      "Only manual payments can be verified manually.",
+    );
+  }
+
+  const order = await Order.findById(payment.order);
+
+  if (!order) {
+    throw new ApiError(404, "ORDER_NOT_FOUND", "Order not found.");
+  }
+
+  if (payment.status === "paid" && order.paymentStatus === "paid") {
+    return res.json({
+      success: true,
+      message: "Payment was already verified.",
+      data: {
+        payment,
+        order,
+      },
+    });
+  }
+
+  payment.status = "paid";
+  payment.verifiedBy = req.user._id;
+  payment.verifiedAt = new Date();
+
+  await payment.save();
+
+  order.paymentStatus = "paid";
+  order.status = "confirmed";
+
+  await order.save();
+
+  const enrollments = await createEnrollmentsFromPaidOrder(order);
+
+  res.json({
+    success: true,
+    message: "Manual payment verified successfully.",
+    data: {
+      payment,
+      order,
+      enrollments,
+    },
+  });
+});
+
+export const rejectManualPayment = asyncHandler(async (req, res) => {
+  const payment = await Payment.findById(req.params.id);
+
+  if (!payment) {
+    throw new ApiError(404, "PAYMENT_NOT_FOUND", "Payment not found.");
+  }
+
+  if (payment.method !== "manual") {
+    throw new ApiError(
+      400,
+      "INVALID_PAYMENT_METHOD",
+      "Only manual payments can be rejected manually.",
+    );
+  }
+
+  payment.status = "failed";
+  payment.verifiedBy = req.user._id;
+  payment.verifiedAt = new Date();
+
+  await payment.save();
+
+  const order = await Order.findById(payment.order);
+
+  if (order) {
+    order.paymentStatus = "failed";
+    order.status = "pending";
+    await order.save();
+  }
+
+  res.json({
+    success: true,
+    message: "Manual payment rejected.",
+    data: payment,
   });
 });

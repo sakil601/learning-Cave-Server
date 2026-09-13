@@ -43,6 +43,10 @@ import {
   updateLesson,
   deleteLesson,
 } from "../../controllers/course.controller.js";
+import {
+  verifyManualPayment,
+  rejectManualPayment,
+} from "../../controllers/payment.controller.js";
 
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
@@ -81,6 +85,9 @@ router.post(
 );
 router.patch("/lessons/:lessonId", validate(updateLessonSchema), updateLesson);
 router.delete("/lessons/:lessonId", validate(lessonIdSchema), deleteLesson);
+router.patch("/payments/:id/verify", verifyManualPayment);
+router.patch("/payments/:id/reject", rejectManualPayment);
+
 router.patch(
   "/instructors/:id/status",
   asyncHandler(async (req, res) => {
