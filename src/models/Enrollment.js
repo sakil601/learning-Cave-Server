@@ -37,9 +37,6 @@ const schema = new mongoose.Schema(
   },
   { timestamps: true },
 );
-schema.index(
-  { user: 1, course: 1, sourceType: 1, sourceId: 1 },
-  { unique: true },
-);
+schema.index({ user: 1, course: 1 }, { unique: true });
 export default mongoose.models.Enrollment ||
   mongoose.model("Enrollment", schema);

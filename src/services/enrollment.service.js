@@ -34,7 +34,7 @@ export async function createEnrollmentsFromPaidOrder(order) {
   const results = [];
 
   for (const item of order.items) {
-    // শুধু recorded course-এর জন্য Enrollment তৈরি হবে
+    // শুধু recorded course-এর জন্য enrollment
     if (item.productType !== "recorded_course") {
       continue;
     }
@@ -53,44 +53,65 @@ export async function createEnrollmentsFromPaidOrder(order) {
       continue;
     }
 
+    const existingEnrollment = await Enrollment.findOne({
+      user: order.user,
+      course: course._id,
+    });
+
+    // আগে থেকেই active lifetime access থাকলে কিছুই change করব না
+    if (
+      existingEnrollment &&
+      existingEnrollment.status === "active" &&
+      existingEnrollment.accessType === "lifetime"
+    ) {
+      results.push(existingEnrollment);
+      continue;
+    }
+
     const startsAt = new Date();
 
     const expiresAt = calculateExpiresAt(product.access, startsAt);
 
-    const enrollment = await Enrollment.findOneAndUpdate(
-      {
-        user: order.user,
-        course: course._id,
-        sourceType: "purchase",
-        sourceId: order._id,
-      },
-      {
-        $setOnInsert: {
-          user: order.user,
-          course: course._id,
-          product: product._id,
-          order: order._id,
+    // Existing enrollment থাকলে reactivate/update
+    if (existingEnrollment) {
+      existingEnrollment.product = product._id;
+      existingEnrollment.order = order._id;
 
-          sourceType: "purchase",
-          sourceId: order._id,
+      existingEnrollment.sourceType = "purchase";
+      existingEnrollment.sourceId = order._id;
 
-          accessType: product.access?.type || "lifetime",
+      existingEnrollment.accessType = product.access?.type || "lifetime";
 
-          startsAt,
+      existingEnrollment.startsAt = startsAt;
+      existingEnrollment.expiresAt = expiresAt;
 
-          expiresAt,
+      existingEnrollment.status = "active";
 
-          status: "active",
+      await existingEnrollment.save();
 
-          enrolledAt: startsAt,
-        },
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true,
-      },
-    );
+      results.push(existingEnrollment);
+
+      continue;
+    }
+
+    // প্রথমবার enrollment
+    const enrollment = await Enrollment.create({
+      user: order.user,
+      course: course._id,
+      product: product._id,
+      order: order._id,
+
+      sourceType: "purchase",
+      sourceId: order._id,
+
+      accessType: product.access?.type || "lifetime",
+
+      startsAt,
+      expiresAt,
+
+      status: "active",
+      enrolledAt: startsAt,
+    });
 
     results.push(enrollment);
   }
