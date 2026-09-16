@@ -8,6 +8,7 @@ import adminRoutes from "./admin.routes.js";
 import orderRoutes from "./order.routes.js";
 import paymentRoutes from "./payment.routes.js";
 import enrollmentRoutes from "./enrollment.routes.js";
+import progressRoutes from "./progress.routes.js";
 
 const router = Router();
 router.get("/", (req, res) =>
@@ -22,4 +23,5 @@ router.use("/admin", adminRoutes);
 router.use("/orders", orderRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/enrollments", enrollmentRoutes);
+router.use("/progress", progressRoutes);
 export default router;
