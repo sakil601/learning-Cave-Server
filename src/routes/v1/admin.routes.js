@@ -47,6 +47,11 @@ import {
   verifyManualPayment,
   rejectManualPayment,
 } from "../../controllers/payment.controller.js";
+import {
+  createQuiz,
+  addQuestion,
+  getManagedQuiz,
+} from "../../controllers/quiz.controller.js";
 
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
@@ -87,6 +92,11 @@ router.patch("/lessons/:lessonId", validate(updateLessonSchema), updateLesson);
 router.delete("/lessons/:lessonId", validate(lessonIdSchema), deleteLesson);
 router.patch("/payments/:id/verify", verifyManualPayment);
 router.patch("/payments/:id/reject", rejectManualPayment);
+router.post("/modules/:moduleId/quiz", createQuiz);
+
+router.post("/quizzes/:quizId/questions", addQuestion);
+
+router.get("/quizzes/:quizId", getManagedQuiz);
 
 router.patch(
   "/instructors/:id/status",

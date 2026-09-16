@@ -3,7 +3,122 @@ import Enrollment from "../models/Enrollment.js";
 import Course from "../models/Course.js";
 import Module from "../models/Module.js";
 import Lesson from "../models/Lesson.js";
+import Quiz from "../models/Quiz.js";
+import QuizAttempt from "../models/QuizAttempt.js";
 import { ApiError } from "../utils/api-error.js";
+
+export async function recalculateCourseProgress({
+  userId,
+  courseId,
+  progress,
+}) {
+  const modules = await Module.find({
+    course: courseId,
+  })
+    .select("_id required")
+    .lean();
+
+  const moduleIds = modules.map((item) => item._id);
+
+  const allLessons = await Lesson.find({
+    module: { $in: moduleIds },
+  })
+    .select("_id module required")
+    .lean();
+
+  const requiredLessons = allLessons.filter((item) => item.required !== false);
+
+  const completedRequiredLessons = requiredLessons.filter((item) =>
+    progress.completedLessons.some((id) => String(id) === String(item._id)),
+  );
+
+  const requiredQuizzes = await Quiz.find({
+    module: { $in: moduleIds },
+    required: true,
+    active: true,
+  })
+    .select("_id module")
+    .lean();
+
+  const requiredQuizIds = requiredQuizzes.map((quiz) => quiz._id);
+
+  const passedQuizAttempts =
+    requiredQuizIds.length > 0
+      ? await QuizAttempt.find({
+          user: userId,
+          quiz: { $in: requiredQuizIds },
+          passed: true,
+          submittedAt: { $ne: null },
+        })
+          .select("quiz")
+          .lean()
+      : [];
+
+  const passedQuizIds = new Set(
+    passedQuizAttempts.map((attempt) => String(attempt.quiz)),
+  );
+
+  const completedModules = [];
+
+  for (const courseModule of modules) {
+    const moduleLessons = allLessons.filter(
+      (item) =>
+        String(item.module) === String(courseModule._id) &&
+        item.required !== false,
+    );
+
+    const lessonsComplete =
+      moduleLessons.length === 0 ||
+      moduleLessons.every((item) =>
+        progress.completedLessons.some((id) => String(id) === String(item._id)),
+      );
+
+    const moduleRequiredQuizzes = requiredQuizzes.filter(
+      (quiz) => String(quiz.module) === String(courseModule._id),
+    );
+
+    const quizzesComplete =
+      moduleRequiredQuizzes.length === 0 ||
+      moduleRequiredQuizzes.every((quiz) =>
+        passedQuizIds.has(String(quiz._id)),
+      );
+
+    if (lessonsComplete && quizzesComplete) {
+      completedModules.push(courseModule._id);
+    }
+  }
+
+  progress.completedModules = completedModules;
+
+  const requiredModules = modules.filter((item) => item.required !== false);
+
+  const completedRequiredModules = requiredModules.filter((item) =>
+    completedModules.some((id) => String(id) === String(item._id)),
+  );
+
+  progress.progressPercent =
+    requiredModules.length > 0
+      ? Math.round(
+          (completedRequiredModules.length / requiredModules.length) * 100,
+        )
+      : 0;
+
+  const courseComplete =
+    requiredModules.length > 0 &&
+    completedRequiredModules.length === requiredModules.length;
+
+  if (courseComplete) {
+    if (!progress.completedAt) {
+      progress.completedAt = new Date();
+    }
+  } else {
+    progress.completedAt = undefined;
+  }
+
+  await progress.save();
+
+  return progress;
+}
 
 export async function updateLessonProgress({
   userId,
@@ -123,69 +238,11 @@ export async function updateLessonProgress({
   progress.lastLesson = lesson._id;
   progress.lastAccessedAt = new Date();
 
-  const allLessons = await Lesson.find({
-    module: {
-      $in: await Module.find({
-        course: courseId,
-      }).distinct("_id"),
-    },
-  })
-    .select("_id module required")
-    .lean();
-
-  const requiredLessons = allLessons.filter((item) => item.required !== false);
-
-  const completedRequiredLessons = requiredLessons.filter((item) =>
-    progress.completedLessons.some((id) => String(id) === String(item._id)),
-  );
-
-  progress.progressPercent =
-    requiredLessons.length > 0
-      ? Math.round(
-          (completedRequiredLessons.length / requiredLessons.length) * 100,
-        )
-      : 0;
-
-  const modules = await Module.find({
-    course: courseId,
-  })
-    .select("_id required")
-    .lean();
-
-  const completedModules = [];
-
-  for (const courseModule of modules) {
-    const moduleLessons = allLessons.filter(
-      (item) =>
-        String(item.module) === String(courseModule._id) &&
-        item.required !== false,
-    );
-
-    const moduleComplete =
-      moduleLessons.length === 0 ||
-      moduleLessons.every((item) =>
-        progress.completedLessons.some((id) => String(id) === String(item._id)),
-      );
-
-    if (moduleComplete) {
-      completedModules.push(courseModule._id);
-    }
-  }
-
-  progress.completedModules = completedModules;
-
-  if (
-    requiredLessons.length > 0 &&
-    completedRequiredLessons.length === requiredLessons.length
-  ) {
-    if (!progress.completedAt) {
-      progress.completedAt = new Date();
-    }
-  } else {
-    progress.completedAt = undefined;
-  }
-
-  await progress.save();
+  await recalculateCourseProgress({
+    userId,
+    courseId,
+    progress,
+  });
 
   return {
     progress,
