@@ -10,6 +10,8 @@ import paymentRoutes from "./payment.routes.js";
 import enrollmentRoutes from "./enrollment.routes.js";
 import progressRoutes from "./progress.routes.js";
 import quizRoutes from "./quiz.routes.js";
+import certificateRoutes from "./certificate.routes.js";
+import moduleResourceRoutes from "./module-resource.routes.js";
 
 const router = Router();
 router.get("/", (req, res) =>
@@ -26,4 +28,6 @@ router.use("/payments", paymentRoutes);
 router.use("/enrollments", enrollmentRoutes);
 router.use("/progress", progressRoutes);
 router.use("/quizzes", quizRoutes);
+router.use("/certificates", certificateRoutes);
+router.use("/learning", moduleResourceRoutes);
 export default router;

@@ -6,6 +6,7 @@ import Lesson from "../models/Lesson.js";
 import Quiz from "../models/Quiz.js";
 import QuizAttempt from "../models/QuizAttempt.js";
 import { ApiError } from "../utils/api-error.js";
+import { issueCertificateIfEligible } from "./certificate.service.js";
 
 export async function recalculateCourseProgress({
   userId,
@@ -116,6 +117,14 @@ export async function recalculateCourseProgress({
   }
 
   await progress.save();
+
+  if (progress.progressPercent === 100) {
+    await issueCertificateIfEligible({
+      userId,
+      courseId,
+      progress,
+    });
+  }
 
   return progress;
 }

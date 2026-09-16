@@ -52,6 +52,12 @@ import {
   addQuestion,
   getManagedQuiz,
 } from "../../controllers/quiz.controller.js";
+import {
+  createModuleResource,
+  updateModuleResource,
+  deleteModuleResource,
+  getModuleResourcesForAdmin,
+} from "../../controllers/module-resource.controller.js";
 
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
@@ -97,6 +103,14 @@ router.post("/modules/:moduleId/quiz", createQuiz);
 router.post("/quizzes/:quizId/questions", addQuestion);
 
 router.get("/quizzes/:quizId", getManagedQuiz);
+
+router.post("/modules/:moduleId/resources", createModuleResource);
+
+router.get("/modules/:moduleId/resources", getModuleResourcesForAdmin);
+
+router.patch("/module-resources/:resourceId", updateModuleResource);
+
+router.delete("/module-resources/:resourceId", deleteModuleResource);
 
 router.patch(
   "/instructors/:id/status",
