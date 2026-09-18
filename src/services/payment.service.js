@@ -1,7 +1,11 @@
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
+
 import { ApiError } from "../utils/api-error.js";
+
 import { createEnrollmentsFromPaidOrder } from "./enrollment.service.js";
+
+import { recordCouponUsage } from "./coupon.service.js";
 
 export async function completePayment({ paymentId, verifiedBy = null }) {
   const payment = await Payment.findById(paymentId);
@@ -40,6 +44,11 @@ export async function completePayment({ paymentId, verifiedBy = null }) {
   await order.save();
 
   const enrollments = await createEnrollmentsFromPaidOrder(order);
+
+  await recordCouponUsage({
+    order,
+    userId: order.user,
+  });
 
   return {
     alreadyProcessed: false,

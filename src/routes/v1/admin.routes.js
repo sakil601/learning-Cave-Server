@@ -58,6 +58,12 @@ import {
   deleteModuleResource,
   getModuleResourcesForAdmin,
 } from "../../controllers/module-resource.controller.js";
+import {
+  createCoupon,
+  listCoupons,
+  updateCoupon,
+  deleteCoupon,
+} from "../../controllers/coupon.controller.js";
 
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
@@ -111,6 +117,13 @@ router.get("/modules/:moduleId/resources", getModuleResourcesForAdmin);
 router.patch("/module-resources/:resourceId", updateModuleResource);
 
 router.delete("/module-resources/:resourceId", deleteModuleResource);
+router.post("/coupons", createCoupon);
+
+router.get("/coupons", listCoupons);
+
+router.patch("/coupons/:id", updateCoupon);
+
+router.delete("/coupons/:id", deleteCoupon);
 
 router.patch(
   "/instructors/:id/status",
