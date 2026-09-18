@@ -1,6 +1,8 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
-
+import Batch from "../models/Batch.js";
+import LiveCourse from "../models/LiveCourse.js";
+import ProductAccess from "../models/ProductAccess.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
 
@@ -39,6 +41,89 @@ export const createOrder = asyncHandler(async (req, res) => {
       );
     }
 
+    let batchId = undefined;
+
+    if (product.type === "live_course") {
+      if (!item.batchId) {
+        throw new ApiError(
+          400,
+          "BATCH_REQUIRED",
+          "A batch must be selected for a live course.",
+        );
+      }
+
+      const liveCourse = await LiveCourse.findOne({
+        product: product._id,
+      }).lean();
+
+      if (!liveCourse) {
+        throw new ApiError(
+          404,
+          "LIVE_COURSE_NOT_FOUND",
+          "Live course configuration not found.",
+        );
+      }
+
+      const batch = await Batch.findOne({
+        _id: item.batchId,
+        liveCourse: liveCourse._id,
+      }).lean();
+
+      if (!batch) {
+        throw new ApiError(
+          404,
+          "BATCH_NOT_FOUND",
+          "Selected batch does not belong to this live course.",
+        );
+      }
+
+      if (batch.status === "cancelled" || batch.status === "completed") {
+        throw new ApiError(
+          400,
+          "BATCH_NOT_AVAILABLE",
+          "This batch is not available for enrollment.",
+        );
+      }
+
+      const now = new Date();
+
+      if (batch.enrollmentOpen && now < new Date(batch.enrollmentOpen)) {
+        throw new ApiError(
+          400,
+          "ENROLLMENT_NOT_OPEN",
+          "Enrollment for this batch has not opened yet.",
+        );
+      }
+
+      if (batch.enrollmentClose && now > new Date(batch.enrollmentClose)) {
+        throw new ApiError(
+          400,
+          "ENROLLMENT_CLOSED",
+          "Enrollment for this batch is closed.",
+        );
+      }
+
+      if (batch.capacity) {
+        const enrolledCount = await ProductAccess.countDocuments({
+          product: product._id,
+          batch: batch._id,
+          status: "active",
+        });
+
+        if (enrolledCount >= batch.capacity) {
+          throw new ApiError(400, "BATCH_FULL", "This batch is already full.");
+        }
+      }
+
+      batchId = batch._id;
+    } else if (item.batchId) {
+      throw new ApiError(
+        400,
+        "BATCH_NOT_ALLOWED",
+        "Batch can only be selected for a live course.",
+      );
+    }
+
     const price =
       product.salePrice !== undefined && product.salePrice !== null
         ? product.salePrice
@@ -58,7 +143,7 @@ export const createOrder = asyncHandler(async (req, res) => {
       salePrice: product.salePrice,
       quantity,
       lineTotal,
-      batch: item.batchId || undefined,
+      batch: batchId,
     });
   }
 

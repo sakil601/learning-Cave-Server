@@ -1,6 +1,8 @@
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
 
+import { createProductAccessFromPaidOrder } from "./product-access.service.js";
+
 import { ApiError } from "../utils/api-error.js";
 
 import { createEnrollmentsFromPaidOrder } from "./enrollment.service.js";
@@ -45,6 +47,8 @@ export async function completePayment({ paymentId, verifiedBy = null }) {
 
   const enrollments = await createEnrollmentsFromPaidOrder(order);
 
+  const productAccesses = await createProductAccessFromPaidOrder(order);
+
   await recordCouponUsage({
     order,
     userId: order.user,
@@ -55,5 +59,6 @@ export async function completePayment({ paymentId, verifiedBy = null }) {
     payment,
     order,
     enrollments,
+    productAccesses,
   };
 }
