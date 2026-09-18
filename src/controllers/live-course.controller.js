@@ -230,3 +230,68 @@ export const updateBatch = asyncHandler(async (req, res) => {
     data: batch,
   });
 });
+
+export const updateLiveSession = asyncHandler(async (req, res) => {
+  const session = await LiveSession.findById(req.params.sessionId);
+
+  if (!session) {
+    throw new ApiError(
+      404,
+      "LIVE_SESSION_NOT_FOUND",
+      "Live session not found.",
+    );
+  }
+
+  const allowedFields = [
+    "title",
+    "classDate",
+    "startsAt",
+    "endsAt",
+    "meetingUrl",
+    "joinBeforeMinutes",
+    "status",
+    "recording",
+  ];
+
+  for (const field of allowedFields) {
+    if (req.body[field] !== undefined) {
+      session[field] = req.body[field];
+    }
+  }
+
+  if (
+    session.startsAt &&
+    session.endsAt &&
+    new Date(session.startsAt) > new Date(session.endsAt)
+  ) {
+    throw new ApiError(
+      400,
+      "INVALID_SESSION_TIME",
+      "Session end time must be after start time.",
+    );
+  }
+
+  const allowedStatuses = [
+    "scheduled",
+    "live",
+    "completed",
+    "cancelled",
+    "rescheduled",
+  ];
+
+  if (session.status && !allowedStatuses.includes(session.status)) {
+    throw new ApiError(
+      400,
+      "INVALID_SESSION_STATUS",
+      "Invalid live session status.",
+    );
+  }
+
+  await session.save();
+
+  res.json({
+    success: true,
+    message: "Live session updated successfully.",
+    data: session,
+  });
+});

@@ -70,6 +70,7 @@ import {
   createLiveSession,
   getManagedLiveCourse,
   updateBatch,
+  updateLiveSession,
 } from "../../controllers/live-course.controller.js";
 
 import {
@@ -144,6 +145,7 @@ router.post("/live-courses", createLiveCourse);
 router.get("/live-courses/:liveCourseId", getManagedLiveCourse);
 
 router.post("/live-courses/:liveCourseId/batches", createBatch);
+router.patch("/live-sessions/:sessionId", updateLiveSession);
 
 router.post("/batches/:batchId/sessions", createLiveSession);
 
