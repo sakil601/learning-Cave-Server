@@ -64,6 +64,19 @@ import {
   updateCoupon,
   deleteCoupon,
 } from "../../controllers/coupon.controller.js";
+import {
+  createLiveCourse,
+  createBatch,
+  createLiveSession,
+  getManagedLiveCourse,
+} from "../../controllers/live-course.controller.js";
+
+import {
+  createAdminProduct,
+  listAdminProducts,
+  updateAdminProduct,
+  deleteAdminProduct,
+} from "../../controllers/admin-product.controller.js";
 
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
@@ -124,6 +137,22 @@ router.get("/coupons", listCoupons);
 router.patch("/coupons/:id", updateCoupon);
 
 router.delete("/coupons/:id", deleteCoupon);
+
+router.post("/live-courses", createLiveCourse);
+
+router.get("/live-courses/:liveCourseId", getManagedLiveCourse);
+
+router.post("/live-courses/:liveCourseId/batches", createBatch);
+
+router.post("/batches/:batchId/sessions", createLiveSession);
+
+router.post("/products", createAdminProduct);
+
+router.get("/products", listAdminProducts);
+
+router.patch("/products/:id", updateAdminProduct);
+
+router.delete("/products/:id", deleteAdminProduct);
 
 router.patch(
   "/instructors/:id/status",
