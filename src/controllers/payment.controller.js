@@ -58,6 +58,7 @@ export const markPaymentPaid = asyncHandler(async (req, res) => {
       payment: result.payment,
       order: result.order,
       enrollments: result.enrollments,
+      productAccesses: result.productAccesses,
     },
   });
 });
@@ -91,6 +92,7 @@ export const verifyManualPayment = asyncHandler(async (req, res) => {
       payment: result.payment,
       order: result.order,
       enrollments: result.enrollments,
+      productAccesses: result.productAccesses,
     },
   });
 });

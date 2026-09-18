@@ -28,6 +28,7 @@ export async function completePayment({ paymentId, verifiedBy = null }) {
       payment,
       order,
       enrollments: [],
+      productAccesses: [],
     };
   }
 

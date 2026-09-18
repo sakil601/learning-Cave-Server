@@ -14,6 +14,7 @@ import certificateRoutes from "./certificate.routes.js";
 import moduleResourceRoutes from "./module-resource.routes.js";
 import reviewRoutes from "./review.routes.js";
 import couponRoutes from "./coupon.routes.js";
+import liveCourseRoutes from "./live-course.routes.js";
 
 const router = Router();
 router.get("/", (req, res) =>
@@ -34,5 +35,6 @@ router.use("/certificates", certificateRoutes);
 router.use("/learning", moduleResourceRoutes);
 router.use("/reviews", reviewRoutes);
 router.use("/coupons", couponRoutes);
+router.use("/live-courses", liveCourseRoutes);
 
 export default router;

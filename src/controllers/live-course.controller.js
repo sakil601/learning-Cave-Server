@@ -186,3 +186,47 @@ export const getManagedLiveCourse = asyncHandler(async (req, res) => {
     },
   });
 });
+
+export const updateBatch = asyncHandler(async (req, res) => {
+  const batch = await Batch.findById(req.params.batchId);
+
+  if (!batch) {
+    throw new ApiError(404, "BATCH_NOT_FOUND", "Batch not found.");
+  }
+
+  const allowedFields = [
+    "name",
+    "startDate",
+    "endDate",
+    "capacity",
+    "status",
+    "enrollmentOpen",
+    "enrollmentClose",
+  ];
+
+  for (const field of allowedFields) {
+    if (req.body[field] !== undefined) {
+      batch[field] = req.body[field];
+    }
+  }
+
+  if (
+    batch.startDate &&
+    batch.endDate &&
+    new Date(batch.startDate) > new Date(batch.endDate)
+  ) {
+    throw new ApiError(
+      400,
+      "INVALID_BATCH_DATES",
+      "Batch end date must be after start date.",
+    );
+  }
+
+  await batch.save();
+
+  res.json({
+    success: true,
+    message: "Batch updated successfully.",
+    data: batch,
+  });
+});
