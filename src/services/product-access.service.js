@@ -39,8 +39,14 @@ export async function createProductAccessFromPaidOrder(order) {
       continue;
     }
 
-    // এখন শুধু live course implement করছি
-    if (item.productType !== "live_course") {
+    const supportedTypes = [
+      "live_course",
+      "ebook",
+      "digital_product",
+      "workshop",
+    ];
+
+    if (!supportedTypes.includes(item.productType)) {
       continue;
     }
 
@@ -50,26 +56,33 @@ export async function createProductAccessFromPaidOrder(order) {
       continue;
     }
 
-    if (!item.batch) {
-      continue;
+    let batch = null;
+
+    if (item.productType === "live_course") {
+      if (!item.batch) {
+        continue;
+      }
+
+      batch = await Batch.findById(item.batch).lean();
+
+      if (!batch) {
+        continue;
+      }
     }
 
-    const batch = await Batch.findOne({
-      _id: item.batch,
-    }).lean();
-
-    if (!batch) {
-      continue;
-    }
-
-    const existing = await ProductAccess.findOne({
+    const accessFilter = {
       user: order.user,
       product: product._id,
-      batch: batch._id,
-    });
+    };
 
-    // আগে থেকেই valid active access থাকলে
-    // duplicate access create করব না
+    if (batch) {
+      accessFilter.batch = batch._id;
+    } else {
+      accessFilter.batch = { $exists: false };
+    }
+
+    const existing = await ProductAccess.findOne(accessFilter);
+
     if (
       existing &&
       existing.status === "active" &&
@@ -85,43 +98,39 @@ export async function createProductAccessFromPaidOrder(order) {
 
     if (existing) {
       existing.order = order._id;
-
       existing.sourceType = "purchase";
-
       existing.sourceId = order._id;
 
       existing.accessType = product.access?.type || "lifetime";
 
       existing.startsAt = startsAt;
-
       existing.expiresAt = expiresAt;
-
       existing.status = "active";
+
+      if (batch) {
+        existing.batch = batch._id;
+      }
 
       await existing.save();
 
       results.push(existing);
-
       continue;
     }
 
     const access = await ProductAccess.create({
       user: order.user,
-
       product: product._id,
 
-      batch: batch._id,
+      batch: batch?._id || undefined,
 
       order: order._id,
 
       sourceType: "purchase",
-
       sourceId: order._id,
 
       accessType: product.access?.type || "lifetime",
 
       startsAt,
-
       expiresAt,
 
       status: "active",

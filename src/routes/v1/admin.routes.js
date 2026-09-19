@@ -79,6 +79,14 @@ import {
   updateAdminProduct,
   deleteAdminProduct,
 } from "../../controllers/admin-product.controller.js";
+import {
+  createEbook,
+  updateEbook,
+  getManagedEbook,
+} from "../../controllers/ebook.controller.js";
+import { uploadEbookPdf } from "../../middlewares/upload.middleware.js";
+
+import { uploadEbookAsset } from "../../controllers/asset.controller.js";
 
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
@@ -158,6 +166,13 @@ router.get("/products", listAdminProducts);
 router.patch("/products/:id", updateAdminProduct);
 
 router.delete("/products/:id", deleteAdminProduct);
+router.post("/products/:productId/ebook", createEbook);
+
+router.get("/products/:productId/ebook", getManagedEbook);
+
+router.patch("/ebooks/:ebookId", updateEbook);
+
+router.post("/assets/ebook", uploadEbookPdf, uploadEbookAsset);
 
 router.patch(
   "/instructors/:id/status",
