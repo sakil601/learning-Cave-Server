@@ -84,9 +84,22 @@ import {
   updateEbook,
   getManagedEbook,
 } from "../../controllers/ebook.controller.js";
-import { uploadEbookPdf } from "../../middlewares/upload.middleware.js";
 
-import { uploadEbookAsset } from "../../controllers/asset.controller.js";
+import {
+  createDigitalProduct,
+  getManagedDigitalProduct,
+  updateDigitalProduct,
+} from "../../controllers/digital-product.controller.js";
+
+import {
+  uploadEbookPdf,
+  uploadDigitalProductFile,
+} from "../../middlewares/upload.middleware.js";
+
+import {
+  uploadEbookAsset,
+  uploadDigitalProductAsset,
+} from "../../controllers/asset.controller.js";
 
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
@@ -173,6 +186,18 @@ router.get("/products/:productId/ebook", getManagedEbook);
 router.patch("/ebooks/:ebookId", updateEbook);
 
 router.post("/assets/ebook", uploadEbookPdf, uploadEbookAsset);
+
+router.post("/products/:productId/digital-product", createDigitalProduct);
+
+router.get("/products/:productId/digital-product", getManagedDigitalProduct);
+
+router.patch("/digital-products/:digitalProductId", updateDigitalProduct);
+
+router.post(
+  "/assets/digital-product",
+  uploadDigitalProductFile,
+  uploadDigitalProductAsset,
+);
 
 router.patch(
   "/instructors/:id/status",
