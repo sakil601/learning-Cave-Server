@@ -1,5 +1,6 @@
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
+import Cart from "../models/Cart.js";
 
 import { createProductAccessFromPaidOrder } from "./product-access.service.js";
 
@@ -61,6 +62,29 @@ export async function completePayment({ paymentId, verifiedBy = null }) {
     order,
     userId: order.user,
   });
+  const cart = await Cart.findOne({
+    user: order.user,
+  });
+
+  if (cart) {
+    const purchasedItems = order.items.map((item) => ({
+      product: String(item.product),
+      batch: item.batch ? String(item.batch) : null,
+    }));
+
+    cart.items = cart.items.filter((cartItem) => {
+      const cartProduct = String(cartItem.product);
+      const cartBatch = cartItem.batch ? String(cartItem.batch) : null;
+
+      const purchased = purchasedItems.some(
+        (item) => item.product === cartProduct && item.batch === cartBatch,
+      );
+
+      return !purchased;
+    });
+
+    await cart.save();
+  }
 
   return {
     alreadyProcessed: false,

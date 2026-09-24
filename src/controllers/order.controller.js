@@ -5,6 +5,7 @@ import LiveCourse from "../models/LiveCourse.js";
 import ProductAccess from "../models/ProductAccess.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
+import Cart from "../models/Cart.js";
 
 import { validateAndCalculateCoupon } from "../services/coupon.service.js";
 
@@ -12,9 +13,7 @@ function generateOrderNumber() {
   return `LC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
-export const createOrder = asyncHandler(async (req, res) => {
-  const { items, billing, couponCode } = req.body;
-
+async function buildAndCreateOrder({ user, items, billing, couponCode }) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new ApiError(
       400,
@@ -41,7 +40,7 @@ export const createOrder = asyncHandler(async (req, res) => {
       );
     }
 
-    let batchId = undefined;
+    let batchId;
 
     if (product.type === "live_course") {
       if (!item.batchId) {
@@ -129,9 +128,7 @@ export const createOrder = asyncHandler(async (req, res) => {
         ? product.salePrice
         : product.regularPrice;
 
-    const quantity = 1;
-
-    const lineTotal = Number(price) * quantity;
+    const lineTotal = Number(price);
 
     subtotal += lineTotal;
 
@@ -141,25 +138,20 @@ export const createOrder = asyncHandler(async (req, res) => {
       title: product.title,
       regularPrice: product.regularPrice,
       salePrice: product.salePrice,
-      quantity,
+      quantity: 1,
       lineTotal,
       batch: batchId,
     });
   }
 
-  let couponData = null;
-  let discountAmount = 0;
+  let couponData;
   let total = subtotal;
 
   if (couponCode && String(couponCode).trim()) {
     const couponResult = await validateAndCalculateCoupon({
       code: couponCode,
-      userId: req.user._id,
-
-      // Important:
-      // server-generated items/price ব্যবহার করছি
+      userId: user._id,
       items: orderItems,
-
       subtotal,
     });
 
@@ -168,24 +160,22 @@ export const createOrder = asyncHandler(async (req, res) => {
       discountAmount: couponResult.discountAmount,
     };
 
-    discountAmount = couponResult.discountAmount;
-
     total = couponResult.total;
   }
 
-  const order = await Order.create({
+  return Order.create({
     orderNumber: generateOrderNumber(),
 
-    user: req.user._id,
+    user: user._id,
 
     items: orderItems,
 
     billing: {
-      name: billing?.name || req.user.name,
+      name: billing?.name || user.name,
 
-      email: billing?.email || req.user.email,
+      email: billing?.email || user.email,
 
-      phone: billing?.phone || req.user.phone,
+      phone: billing?.phone || user.phone,
     },
 
     subtotal,
@@ -200,11 +190,47 @@ export const createOrder = asyncHandler(async (req, res) => {
 
     paymentStatus: "unpaid",
   });
+}
+
+export const createOrder = asyncHandler(async (req, res) => {
+  const order = await buildAndCreateOrder({
+    user: req.user,
+    items: req.body.items,
+    billing: req.body.billing,
+    couponCode: req.body.couponCode,
+  });
 
   res.status(201).json({
     success: true,
     message: "Order created successfully.",
+    data: order,
+  });
+});
 
+export const createOrderFromCart = asyncHandler(async (req, res) => {
+  const cart = await Cart.findOne({
+    user: req.user._id,
+  }).lean();
+
+  if (!cart || !cart.items?.length) {
+    throw new ApiError(400, "CART_EMPTY", "Your cart is empty.");
+  }
+
+  const items = cart.items.map((item) => ({
+    productId: item.product,
+    batchId: item.batch || undefined,
+  }));
+
+  const order = await buildAndCreateOrder({
+    user: req.user,
+    items,
+    billing: req.body.billing,
+    couponCode: req.body.couponCode,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Order created from cart successfully.",
     data: order,
   });
 });
