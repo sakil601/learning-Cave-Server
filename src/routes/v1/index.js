@@ -17,6 +17,7 @@ import couponRoutes from "./coupon.routes.js";
 import liveCourseRoutes from "./live-course.routes.js";
 import ebookRoutes from "./ebook.routes.js";
 import digitalProductRoutes from "./digital-product.routes.js";
+import bundleRoutes from "./bundle.routes.js";
 
 const router = Router();
 router.get("/", (req, res) =>
@@ -40,5 +41,6 @@ router.use("/coupons", couponRoutes);
 router.use("/live-courses", liveCourseRoutes);
 router.use("/ebooks", ebookRoutes);
 router.use("/digital-products", digitalProductRoutes);
+router.use("/bundles", bundleRoutes);
 
 export default router;
