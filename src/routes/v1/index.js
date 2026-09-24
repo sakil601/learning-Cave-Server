@@ -19,6 +19,7 @@ import ebookRoutes from "./ebook.routes.js";
 import digitalProductRoutes from "./digital-product.routes.js";
 import bundleRoutes from "./bundle.routes.js";
 import cartRoutes from "./cart.routes.js";
+import wishlistRoutes from "./wishlist.routes.js";
 
 const router = Router();
 router.get("/", (req, res) =>
@@ -44,5 +45,6 @@ router.use("/ebooks", ebookRoutes);
 router.use("/digital-products", digitalProductRoutes);
 router.use("/bundles", bundleRoutes);
 router.use("/cart", cartRoutes);
+router.use("/wishlist", wishlistRoutes);
 
 export default router;
