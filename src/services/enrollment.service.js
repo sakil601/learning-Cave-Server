@@ -30,7 +30,10 @@ function calculateExpiresAt(access, startsAt) {
   return date;
 }
 
-export async function createEnrollmentsFromPaidOrder(order) {
+export async function createEnrollmentsFromPaidOrder(
+  order,
+  { sourceType = "purchase", sourceId = order._id } = {},
+) {
   const results = [];
 
   for (const item of order.items) {
@@ -77,8 +80,8 @@ export async function createEnrollmentsFromPaidOrder(order) {
       existingEnrollment.product = product._id;
       existingEnrollment.order = order._id;
 
-      existingEnrollment.sourceType = "purchase";
-      existingEnrollment.sourceId = order._id;
+      existingEnrollment.sourceType = sourceType;
+      existingEnrollment.sourceId = sourceId;
 
       existingEnrollment.accessType = product.access?.type || "lifetime";
 
@@ -101,8 +104,8 @@ export async function createEnrollmentsFromPaidOrder(order) {
       product: product._id,
       order: order._id,
 
-      sourceType: "purchase",
-      sourceId: order._id,
+      sourceType,
+      sourceId,
 
       accessType: product.access?.type || "lifetime",
 

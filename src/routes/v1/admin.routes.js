@@ -100,6 +100,11 @@ import {
   uploadEbookAsset,
   uploadDigitalProductAsset,
 } from "../../controllers/asset.controller.js";
+import {
+  createBundle,
+  getManagedBundle,
+  updateBundle,
+} from "../../controllers/bundle.controller.js";
 
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
@@ -198,6 +203,12 @@ router.post(
   uploadDigitalProductFile,
   uploadDigitalProductAsset,
 );
+
+router.post("/products/:productId/bundle", createBundle);
+
+router.get("/products/:productId/bundle", getManagedBundle);
+
+router.patch("/bundles/:bundleId", updateBundle);
 
 router.patch(
   "/instructors/:id/status",

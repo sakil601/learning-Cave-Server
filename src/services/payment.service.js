@@ -8,6 +8,7 @@ import { ApiError } from "../utils/api-error.js";
 import { createEnrollmentsFromPaidOrder } from "./enrollment.service.js";
 
 import { recordCouponUsage } from "./coupon.service.js";
+import { createBundleAccessFromPaidOrder } from "./bundle-access.service.js";
 
 export async function completePayment({ paymentId, verifiedBy = null }) {
   const payment = await Payment.findById(paymentId);
@@ -49,6 +50,12 @@ export async function completePayment({ paymentId, verifiedBy = null }) {
   const enrollments = await createEnrollmentsFromPaidOrder(order);
 
   const productAccesses = await createProductAccessFromPaidOrder(order);
+
+  const bundleAccess = await createBundleAccessFromPaidOrder(order);
+
+  enrollments.push(...bundleAccess.enrollments);
+
+  productAccesses.push(...bundleAccess.productAccesses);
 
   await recordCouponUsage({
     order,
