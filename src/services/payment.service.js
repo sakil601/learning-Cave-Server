@@ -1,6 +1,7 @@
 import Payment from "../models/Payment.js";
 import Order from "../models/Order.js";
 import Cart from "../models/Cart.js";
+import Notification from "../models/Notification.js";
 
 import { createProductAccessFromPaidOrder } from "./product-access.service.js";
 
@@ -85,6 +86,14 @@ export async function completePayment({ paymentId, verifiedBy = null }) {
 
     await cart.save();
   }
+
+  await Notification.create({
+    user: order.user,
+    type: "payment_success",
+    title: "Payment Successful",
+    message: `Your payment for order ${order.orderNumber} was successful.`,
+    link: `/orders/${order._id}`,
+  });
 
   return {
     alreadyProcessed: false,

@@ -87,6 +87,13 @@ export async function issueCertificateIfEligible({
       instructorName: instructor?.name || "",
     },
   });
+  await createNotification({
+    userId,
+    type: "certificate_issued",
+    title: "Certificate Issued",
+    message: `Your certificate for ${product.title} is now available.`,
+    link: `/certificates/${certificate.certificateId}`,
+  });
 
   return certificate;
 }

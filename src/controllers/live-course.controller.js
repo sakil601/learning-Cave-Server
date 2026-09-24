@@ -5,6 +5,7 @@ import LiveSession from "../models/LiveSession.js";
 
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
+import { notifyBatchStudents } from "../services/live-session-notification.service.js";
 
 export const createLiveCourse = asyncHandler(async (req, res) => {
   const { productId, instructorId, meetingProvider = "custom" } = req.body;
@@ -131,6 +132,18 @@ export const createLiveSession = asyncHandler(async (req, res) => {
     status: "scheduled",
   });
 
+  await notifyBatchStudents({
+    batchId: batch._id,
+
+    type: "live_session_scheduled",
+
+    title: "New Live Class Scheduled",
+
+    message: `${session.title} has been scheduled.`,
+
+    link: `/live-courses/me`,
+  });
+
   res.status(201).json({
     success: true,
     message: "Live session created successfully.",
@@ -242,6 +255,15 @@ export const updateLiveSession = asyncHandler(async (req, res) => {
     );
   }
 
+  const oldStartsAt = session.startsAt
+    ? new Date(session.startsAt).getTime()
+    : null;
+
+  const oldEndsAt = session.endsAt ? new Date(session.endsAt).getTime() : null;
+
+  const oldStatus = session.status;
+  const oldTitle = session.title;
+
   const allowedFields = [
     "title",
     "classDate",
@@ -288,6 +310,60 @@ export const updateLiveSession = asyncHandler(async (req, res) => {
   }
 
   await session.save();
+
+  const newStartsAt = session.startsAt
+    ? new Date(session.startsAt).getTime()
+    : null;
+
+  const newEndsAt = session.endsAt ? new Date(session.endsAt).getTime() : null;
+
+  const scheduleChanged =
+    oldStartsAt !== newStartsAt ||
+    oldEndsAt !== newEndsAt ||
+    oldTitle !== session.title;
+
+  const statusChanged = oldStatus !== session.status;
+
+  if (scheduleChanged || statusChanged) {
+    let type = "live_session_updated";
+    let title = "Live Class Updated";
+    let message = `${session.title} has been updated.`;
+
+    if (session.status === "cancelled") {
+      type = "live_session_cancelled";
+      title = "Live Class Cancelled";
+      message = `${session.title} has been cancelled.`;
+    }
+
+    if (session.status === "rescheduled") {
+      type = "live_session_rescheduled";
+      title = "Live Class Rescheduled";
+      message = `${session.title} has been rescheduled.`;
+    }
+
+    if (session.status === "live") {
+      type = "live_session_started";
+      title = "Live Class Started";
+      message = `${session.title} is now live.`;
+    }
+
+    if (session.status === "completed") {
+      type = "live_session_completed";
+      title = "Live Class Completed";
+
+      message = session.recording?.videoId
+        ? `${session.title} has ended. The recording is now available.`
+        : `${session.title} has been completed.`;
+    }
+
+    await notifyBatchStudents({
+      batchId: session.batch,
+      type,
+      title,
+      message,
+      link: `/live-courses/me`,
+    });
+  }
 
   res.json({
     success: true,

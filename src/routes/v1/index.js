@@ -20,6 +20,7 @@ import digitalProductRoutes from "./digital-product.routes.js";
 import bundleRoutes from "./bundle.routes.js";
 import cartRoutes from "./cart.routes.js";
 import wishlistRoutes from "./wishlist.routes.js";
+import notificationRoutes from "./notification.routes.js";
 
 const router = Router();
 router.get("/", (req, res) =>
@@ -46,5 +47,6 @@ router.use("/digital-products", digitalProductRoutes);
 router.use("/bundles", bundleRoutes);
 router.use("/cart", cartRoutes);
 router.use("/wishlist", wishlistRoutes);
+router.use("/notifications", notificationRoutes);
 
 export default router;
