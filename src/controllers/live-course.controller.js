@@ -2,6 +2,7 @@ import Product from "../models/Product.js";
 import LiveCourse from "../models/LiveCourse.js";
 import Batch from "../models/Batch.js";
 import LiveSession from "../models/LiveSession.js";
+import ProductAccess from "../models/ProductAccess.js";
 
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
