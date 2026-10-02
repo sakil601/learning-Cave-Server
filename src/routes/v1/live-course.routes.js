@@ -7,7 +7,13 @@ import {
   getMyLiveCourse,
 } from "../../controllers/student-live-course.controller.js";
 
+import {
+  getPublicLiveCourseBatches,
+} from "../../controllers/live-course.controller.js";
+
 const router = Router();
+
+router.get("/:slug/batches", getPublicLiveCourseBatches);
 
 router.use(requireAuth);
 
