@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { requireAuth } from "../../middlewares/auth.middleware.js";
+
 import {
   createOrder,
   createOrderFromCart,
@@ -10,7 +11,6 @@ const router = Router();
 
 router.use(requireAuth);
 
-router.post("/", createOrder);
 router.post("/", createOrder);
 
 router.post("/from-cart", createOrderFromCart);

@@ -3,6 +3,8 @@ import Product from "../models/Product.js";
 import Batch from "../models/Batch.js";
 import LiveCourse from "../models/LiveCourse.js";
 import ProductAccess from "../models/ProductAccess.js";
+import Enrollment from "../models/Enrollment.js";
+import Course from "../models/Course.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
 import Cart from "../models/Cart.js";
@@ -11,6 +13,102 @@ import { validateAndCalculateCoupon } from "../services/coupon.service.js";
 
 function generateOrderNumber() {
   return `LC-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+function hasUsableAccess(record) {
+  if (!record || record.status !== "active") {
+    return false;
+  }
+
+  if (!record.expiresAt) {
+    return true;
+  }
+
+  return new Date(record.expiresAt) > new Date();
+}
+
+async function ensureProductNotAlreadyOwned({ userId, product, batch = null }) {
+  // Recorded course
+  if (product.type === "recorded_course") {
+    const course = await Course.findOne({
+      product: product._id,
+    })
+      .select("_id")
+      .lean();
+
+    if (!course) {
+      throw new ApiError(
+        404,
+        "COURSE_NOT_FOUND",
+        "Recorded course configuration not found.",
+      );
+    }
+
+    const existingEnrollment = await Enrollment.findOne({
+      user: userId,
+      course: course._id,
+      status: "active",
+    })
+      .select("status accessType expiresAt")
+      .lean();
+
+    if (hasUsableAccess(existingEnrollment)) {
+      throw new ApiError(
+        409,
+        "COURSE_ALREADY_ENROLLED",
+        "You are already enrolled in this course.",
+      );
+    }
+
+    return;
+  }
+
+  // ProductAccess based products
+  const supportedAccessTypes = [
+    "live_course",
+    "ebook",
+    "digital_product",
+    "workshop",
+  ];
+
+  if (!supportedAccessTypes.includes(product.type)) {
+    return;
+  }
+
+  const accessFilter = {
+    user: userId,
+    product: product._id,
+    status: "active",
+  };
+
+  // Live course একই batch ধরে check হবে
+  if (product.type === "live_course") {
+    accessFilter.batch = batch?._id;
+  } else {
+    accessFilter.batch = { $exists: false };
+  }
+
+  const existingAccess = await ProductAccess.findOne(accessFilter)
+    .select("status accessType expiresAt batch")
+    .lean();
+
+  if (!hasUsableAccess(existingAccess)) {
+    return;
+  }
+
+  if (product.type === "live_course") {
+    throw new ApiError(
+      409,
+      "LIVE_BATCH_ALREADY_ENROLLED",
+      "You are already enrolled in this live course batch.",
+    );
+  }
+
+  throw new ApiError(
+    409,
+    "PRODUCT_ALREADY_OWNED",
+    "You already have access to this product.",
+  );
 }
 
 async function buildAndCreateOrder({ user, items, billing, couponCode }) {
@@ -23,6 +121,8 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
   }
 
   const orderItems = [];
+  const seenItems = new Set();
+
   let subtotal = 0;
 
   for (const item of items) {
@@ -41,6 +141,7 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
     }
 
     let batchId;
+    let validatedBatch = null;
 
     if (product.type === "live_course") {
       if (!item.batchId) {
@@ -107,6 +208,11 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
           product: product._id,
           batch: batch._id,
           status: "active",
+          $or: [
+            { expiresAt: null },
+            { expiresAt: { $exists: false } },
+            { expiresAt: { $gt: now } },
+          ],
         });
 
         if (enrolledCount >= batch.capacity) {
@@ -115,6 +221,7 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
       }
 
       batchId = batch._id;
+      validatedBatch = batch;
     } else if (item.batchId) {
       throw new ApiError(
         400,
@@ -122,6 +229,29 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
         "Batch can only be selected for a live course.",
       );
     }
+
+    // Same order-এর মধ্যে duplicate product block
+    const itemKey =
+      product.type === "live_course"
+        ? `${product._id}:${String(batchId)}`
+        : String(product._id);
+
+    if (seenItems.has(itemKey)) {
+      throw new ApiError(
+        409,
+        "DUPLICATE_ORDER_ITEM",
+        "The same product cannot be added to an order more than once.",
+      );
+    }
+
+    seenItems.add(itemKey);
+
+    // Already owned/enrolled check
+    await ensureProductNotAlreadyOwned({
+      userId: user._id,
+      product,
+      batch: validatedBatch,
+    });
 
     const price =
       product.salePrice !== undefined && product.salePrice !== null
@@ -172,9 +302,7 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
 
     billing: {
       name: billing?.name || user.name,
-
       email: billing?.email || user.email,
-
       phone: billing?.phone || user.phone,
     },
 

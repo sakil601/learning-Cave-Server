@@ -5,7 +5,7 @@ import { asyncHandler } from '../utils/async-handler.js';
 const cookieBase = () => ({
   httpOnly: true,
   secure: process.env.COOKIE_SECURE === 'true',
-  sameSite: 'lax',
+  sameSite: process.env.COOKIE_SAME_SITE || 'lax',
   path: '/',
 });
 
