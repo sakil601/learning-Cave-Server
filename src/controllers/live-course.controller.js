@@ -371,3 +371,122 @@ export const updateLiveSession = asyncHandler(async (req, res) => {
     data: session,
   });
 });
+
+
+export const getPublicLiveCourseBatches = asyncHandler(async (req, res) => {
+  const product = await Product.findOne({
+    slug: req.params.slug,
+    type: "live_course",
+    status: "published",
+    deletedAt: null,
+  })
+    .select(
+      "title slug shortDescription thumbnail regularPrice salePrice isFree access status",
+    )
+    .lean();
+
+  if (!product) {
+    throw new ApiError(
+      404,
+      "LIVE_PRODUCT_NOT_FOUND",
+      "Live course product not found.",
+    );
+  }
+
+  const liveCourse = await LiveCourse.findOne({
+    product: product._id,
+  })
+    .populate("instructor", "name avatar")
+    .lean();
+
+  if (!liveCourse) {
+    throw new ApiError(
+      404,
+      "LIVE_COURSE_NOT_FOUND",
+      "Live course configuration not found.",
+    );
+  }
+
+  const now = new Date();
+
+  const batches = await Batch.find({
+    liveCourse: liveCourse._id,
+    status: { $in: ["upcoming", "ongoing"] },
+    $and: [
+      {
+        $or: [
+          { enrollmentOpen: { $exists: false } },
+          { enrollmentOpen: null },
+          { enrollmentOpen: { $lte: now } },
+        ],
+      },
+      {
+        $or: [
+          { enrollmentClose: { $exists: false } },
+          { enrollmentClose: null },
+          { enrollmentClose: { $gte: now } },
+        ],
+      },
+    ],
+  })
+    .select(
+      "name startDate endDate capacity status enrollmentOpen enrollmentClose",
+    )
+    .sort({ startDate: 1, createdAt: 1 })
+    .lean();
+
+  const batchIds = batches.map((batch) => batch._id);
+
+  const counts = batchIds.length
+    ? await ProductAccess.aggregate([
+        {
+          $match: {
+            product: product._id,
+            batch: { $in: batchIds },
+            status: "active",
+            $or: [
+              { expiresAt: null },
+              { expiresAt: { $exists: false } },
+              { expiresAt: { $gt: now } },
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: "$batch",
+            count: { $sum: 1 },
+          },
+        },
+      ])
+    : [];
+
+  const countMap = new Map(
+    counts.map((item) => [String(item._id), item.count]),
+  );
+
+  const availableBatches = batches.map((batch) => {
+    const enrolledCount = countMap.get(String(batch._id)) || 0;
+    const capacity = Number(batch.capacity) || null;
+
+    return {
+      ...batch,
+      enrolledCount,
+      seatsRemaining:
+        capacity === null ? null : Math.max(0, capacity - enrolledCount),
+      full: capacity !== null && enrolledCount >= capacity,
+    };
+  });
+
+  res.json({
+    success: true,
+    data: {
+      product,
+      liveCourse: {
+        _id: liveCourse._id,
+        meetingProvider: liveCourse.meetingProvider,
+        instructor: liveCourse.instructor,
+      },
+      batches: availableBatches,
+    },
+  });
+});
