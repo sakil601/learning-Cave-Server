@@ -47,8 +47,47 @@ export const listAdminUsers = asyncHandler(async (req, res) => {
 });
 
 export const listAdminInstructors = asyncHandler(async (req, res) => {
-  req.query.role = "instructor";
-  return listAdminUsers(req, res);
+  const page = Math.max(Number(req.query.page || 1), 1);
+  const limit = Math.min(Math.max(Number(req.query.limit || 20), 1), 100);
+
+  const filter = {
+    role: "instructor",
+  };
+
+  if (req.query.status) {
+    filter.accountStatus = req.query.status;
+  }
+
+  if (req.query.search) {
+    filter.$or = [
+      { name: { $regex: req.query.search, $options: "i" } },
+      { email: { $regex: req.query.search, $options: "i" } },
+      { phone: { $regex: req.query.search, $options: "i" } },
+    ];
+  }
+
+  const [data, total] = await Promise.all([
+    User.find(filter)
+      .select(
+        "name email phone role accountStatus emailVerified phoneVerified avatar lastLoginAt createdAt updatedAt",
+      )
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    User.countDocuments(filter),
+  ]);
+
+  res.json({
+    success: true,
+    data,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
 });
 
 export const listAdminPayments = asyncHandler(async (req, res) => {
