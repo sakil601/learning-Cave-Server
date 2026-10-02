@@ -51,6 +51,11 @@ import {
   createQuiz,
   addQuestion,
   getManagedQuiz,
+  getManagedQuizByModule,
+  updateQuiz,
+  deleteQuiz,
+  updateQuestion,
+  deleteQuestion,
 } from "../../controllers/quiz.controller.js";
 import {
   createModuleResource,
@@ -106,6 +111,14 @@ import {
   updateBundle,
 } from "../../controllers/bundle.controller.js";
 
+import {
+  listAdminUsers,
+  listAdminInstructors,
+  listAdminPayments,
+  listManagedLiveCourses,
+  getManagedLiveCourseByProduct,
+} from "../../controllers/admin-management.controller.js";
+
 const router = Router();
 router.use(requireAuth, allowRoles("admin"));
 router.get("/categories", listCategories);
@@ -143,13 +156,23 @@ router.post(
 );
 router.patch("/lessons/:lessonId", validate(updateLessonSchema), updateLesson);
 router.delete("/lessons/:lessonId", validate(lessonIdSchema), deleteLesson);
+router.get("/users", listAdminUsers);
+router.get("/instructors", listAdminInstructors);
+
+router.get("/payments", listAdminPayments);
 router.patch("/payments/:id/verify", verifyManualPayment);
 router.patch("/payments/:id/reject", rejectManualPayment);
-router.post("/modules/:moduleId/quiz", createQuiz);
 
-router.post("/quizzes/:quizId/questions", addQuestion);
+router.post("/modules/:moduleId/quiz", createQuiz);
+router.get("/modules/:moduleId/quiz", getManagedQuizByModule);
 
 router.get("/quizzes/:quizId", getManagedQuiz);
+router.patch("/quizzes/:quizId", updateQuiz);
+router.delete("/quizzes/:quizId", deleteQuiz);
+
+router.post("/quizzes/:quizId/questions", addQuestion);
+router.patch("/questions/:questionId", updateQuestion);
+router.delete("/questions/:questionId", deleteQuestion);
 
 router.post("/modules/:moduleId/resources", createModuleResource);
 
@@ -167,7 +190,8 @@ router.patch("/coupons/:id", updateCoupon);
 router.delete("/coupons/:id", deleteCoupon);
 
 router.post("/live-courses", createLiveCourse);
-
+router.get("/live-courses", listManagedLiveCourses);
+router.get("/live-courses/by-product/:productId", getManagedLiveCourseByProduct);
 router.get("/live-courses/:liveCourseId", getManagedLiveCourse);
 
 router.post("/live-courses/:liveCourseId/batches", createBatch);
