@@ -5,6 +5,7 @@ import LiveCourse from "../models/LiveCourse.js";
 import ProductAccess from "../models/ProductAccess.js";
 import Enrollment from "../models/Enrollment.js";
 import Course from "../models/Course.js";
+import Payment from "../models/Payment.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
 import Cart from "../models/Cart.js";
@@ -28,7 +29,6 @@ function hasUsableAccess(record) {
 }
 
 async function ensureProductNotAlreadyOwned({ userId, product, batch = null }) {
-  // Recorded course
   if (product.type === "recorded_course") {
     const course = await Course.findOne({
       product: product._id,
@@ -63,7 +63,6 @@ async function ensureProductNotAlreadyOwned({ userId, product, batch = null }) {
     return;
   }
 
-  // ProductAccess based products
   const supportedAccessTypes = [
     "live_course",
     "ebook",
@@ -81,7 +80,6 @@ async function ensureProductNotAlreadyOwned({ userId, product, batch = null }) {
     status: "active",
   };
 
-  // Live course একই batch ধরে check হবে
   if (product.type === "live_course") {
     accessFilter.batch = batch?._id;
   } else {
@@ -230,7 +228,6 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
       );
     }
 
-    // Same order-এর মধ্যে duplicate product block
     const itemKey =
       product.type === "live_course"
         ? `${product._id}:${String(batchId)}`
@@ -246,7 +243,6 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
 
     seenItems.add(itemKey);
 
-    // Already owned/enrolled check
     await ensureProductNotAlreadyOwned({
       userId: user._id,
       product,
@@ -295,27 +291,18 @@ async function buildAndCreateOrder({ user, items, billing, couponCode }) {
 
   return Order.create({
     orderNumber: generateOrderNumber(),
-
     user: user._id,
-
     items: orderItems,
-
     billing: {
       name: billing?.name || user.name,
       email: billing?.email || user.email,
       phone: billing?.phone || user.phone,
     },
-
     subtotal,
-
     coupon: couponData || undefined,
-
     total,
-
     currency: "BDT",
-
     status: "pending",
-
     paymentStatus: "unpaid",
   });
 }
@@ -360,5 +347,117 @@ export const createOrderFromCart = asyncHandler(async (req, res) => {
     success: true,
     message: "Order created from cart successfully.",
     data: order,
+  });
+});
+
+export const getMyOrders = asyncHandler(async (req, res) => {
+  const page = Math.max(Number(req.query.page || 1), 1);
+  const limit = Math.min(Math.max(Number(req.query.limit || 20), 1), 100);
+
+  const filter = {
+    user: req.user._id,
+  };
+
+  if (req.query.status) {
+    filter.status = req.query.status;
+  }
+
+  if (req.query.paymentStatus) {
+    filter.paymentStatus = req.query.paymentStatus;
+  }
+
+  const [orders, total] = await Promise.all([
+    Order.find(filter)
+      .populate({
+        path: "items.product",
+        select: "title slug type thumbnail status",
+      })
+      .populate({
+        path: "items.batch",
+        select: "name startDate endDate status",
+      })
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    Order.countDocuments(filter),
+  ]);
+
+  const orderIds = orders.map((order) => order._id);
+
+  const payments = orderIds.length
+    ? await Payment.find({
+        order: { $in: orderIds },
+      })
+        .select(
+          "order method amount status transactionId gatewayReference verifiedAt createdAt",
+        )
+        .sort({ createdAt: -1 })
+        .lean()
+    : [];
+
+  const latestPaymentByOrder = new Map();
+
+  for (const payment of payments) {
+    const key = String(payment.order);
+
+    if (!latestPaymentByOrder.has(key)) {
+      latestPaymentByOrder.set(key, payment);
+    }
+  }
+
+  const data = orders.map((order) => ({
+    ...order,
+    payment: latestPaymentByOrder.get(String(order._id)) || null,
+  }));
+
+  res.json({
+    success: true,
+    data,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  });
+});
+
+export const getMyOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findOne({
+    _id: req.params.id,
+    user: req.user._id,
+  })
+    .populate({
+      path: "items.product",
+      select:
+        "title slug type shortDescription thumbnail regularPrice salePrice status",
+    })
+    .populate({
+      path: "items.batch",
+      select:
+        "name startDate endDate status capacity enrollmentOpen enrollmentClose",
+    })
+    .lean();
+
+  if (!order) {
+    throw new ApiError(404, "ORDER_NOT_FOUND", "Order not found.");
+  }
+
+  const payment = await Payment.findOne({
+    order: order._id,
+  })
+    .select(
+      "method amount status transactionId gatewayReference manualProof verifiedAt createdAt updatedAt",
+    )
+    .sort({ createdAt: -1 })
+    .lean();
+
+  res.json({
+    success: true,
+    data: {
+      ...order,
+      payment: payment || null,
+    },
   });
 });

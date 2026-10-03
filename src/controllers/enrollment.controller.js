@@ -2,6 +2,7 @@ import Enrollment from "../models/Enrollment.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import Module from "../models/Module.js";
 import Lesson from "../models/Lesson.js";
+import Quiz from "../models/Quiz.js";
 import { ApiError } from "../utils/api-error.js";
 
 export const getMyEnrollments = asyncHandler(async (req, res) => {
@@ -80,18 +81,34 @@ export const getMyEnrollmentCourse = asyncHandler(async (req, res) => {
 
   const moduleIds = modules.map((module) => module._id);
 
-  const lessons = await Lesson.find({
-    module: { $in: moduleIds },
-  })
-    .select("module title order required isPreview video.duration")
-    .sort({ order: 1 })
-    .lean();
+  const [lessons, quizzes] = await Promise.all([
+    Lesson.find({
+      module: { $in: moduleIds },
+    })
+      .select("module title order required isPreview video.duration")
+      .sort({ order: 1 })
+      .lean(),
+
+    Quiz.find({
+      module: { $in: moduleIds },
+      active: true,
+    })
+      .select(
+        "module title passPercentage timeLimitMinutes maxAttempts required showResult showCorrectAnswer randomizeQuestions active",
+      )
+      .lean(),
+  ]);
+
+  const quizByModule = new Map(
+    quizzes.map((quiz) => [String(quiz.module), quiz]),
+  );
 
   const curriculum = modules.map((module) => ({
     ...module,
     lessons: lessons.filter(
       (lesson) => String(lesson.module) === String(module._id),
     ),
+    quiz: quizByModule.get(String(module._id)) || null,
   }));
 
   res.json({
@@ -105,11 +122,8 @@ export const getMyEnrollmentCourse = asyncHandler(async (req, res) => {
         status: enrollment.status,
         enrolledAt: enrollment.enrolledAt,
       },
-
       product: enrollment.product,
-
       course: enrollment.course,
-
       curriculum,
     },
   });

@@ -1,12 +1,18 @@
 import Quiz from "../models/Quiz.js";
 import Question from "../models/Question.js";
 import Module from "../models/Module.js";
+import QuizAttempt from "../models/QuizAttempt.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiError } from "../utils/api-error.js";
 
+function applyFields(target, source, fields) {
+  for (const field of fields) {
+    if (source[field] !== undefined) target[field] = source[field];
+  }
+}
+
 export const createQuiz = asyncHandler(async (req, res) => {
   const { moduleId } = req.params;
-
   const {
     title,
     passPercentage = 80,
@@ -20,15 +26,11 @@ export const createQuiz = asyncHandler(async (req, res) => {
   } = req.body;
 
   const module = await Module.findById(moduleId);
-
   if (!module) {
     throw new ApiError(404, "MODULE_NOT_FOUND", "Module not found.");
   }
 
-  const existingQuiz = await Quiz.findOne({
-    module: moduleId,
-  });
-
+  const existingQuiz = await Quiz.findOne({ module: moduleId });
   if (existingQuiz) {
     throw new ApiError(
       400,
@@ -59,11 +61,9 @@ export const createQuiz = asyncHandler(async (req, res) => {
 
 export const addQuestion = asyncHandler(async (req, res) => {
   const { quizId } = req.params;
-
   const { question, correctAnswer, marks = 1, order = 0 } = req.body;
 
   const quiz = await Quiz.findById(quizId);
-
   if (!quiz) {
     throw new ApiError(404, "QUIZ_NOT_FOUND", "Quiz not found.");
   }
@@ -95,22 +95,141 @@ export const getManagedQuiz = asyncHandler(async (req, res) => {
   const { quizId } = req.params;
 
   const quiz = await Quiz.findById(quizId).lean();
+  if (!quiz) {
+    throw new ApiError(404, "QUIZ_NOT_FOUND", "Quiz not found.");
+  }
+
+  const questions = await Question.find({ quiz: quizId })
+    .sort({ order: 1, createdAt: 1 })
+    .lean();
+
+  res.json({
+    success: true,
+    data: { quiz, questions },
+  });
+});
+
+export const getManagedQuizByModule = asyncHandler(async (req, res) => {
+  const module = await Module.findById(req.params.moduleId).lean();
+  if (!module) {
+    throw new ApiError(404, "MODULE_NOT_FOUND", "Module not found.");
+  }
+
+  const quiz = await Quiz.findOne({ module: module._id }).lean();
+
+  if (!quiz) {
+    return res.json({
+      success: true,
+      data: null,
+    });
+  }
+
+  const questions = await Question.find({ quiz: quiz._id })
+    .sort({ order: 1, createdAt: 1 })
+    .lean();
+
+  res.json({
+    success: true,
+    data: { quiz, questions },
+  });
+});
+
+export const updateQuiz = asyncHandler(async (req, res) => {
+  const quiz = await Quiz.findById(req.params.quizId);
 
   if (!quiz) {
     throw new ApiError(404, "QUIZ_NOT_FOUND", "Quiz not found.");
   }
 
-  const questions = await Question.find({
-    quiz: quizId,
-  })
-    .sort({ order: 1 })
-    .lean();
+  applyFields(quiz, req.body, [
+    "title",
+    "passPercentage",
+    "timeLimitMinutes",
+    "maxAttempts",
+    "required",
+    "showResult",
+    "showCorrectAnswer",
+    "randomizeQuestions",
+    "active",
+  ]);
+
+  await quiz.save();
 
   res.json({
     success: true,
-    data: {
-      quiz,
-      questions,
-    },
+    message: "Quiz updated successfully.",
+    data: quiz,
+  });
+});
+
+export const deleteQuiz = asyncHandler(async (req, res) => {
+  const quiz = await Quiz.findById(req.params.quizId);
+
+  if (!quiz) {
+    throw new ApiError(404, "QUIZ_NOT_FOUND", "Quiz not found.");
+  }
+
+  await Promise.all([
+    Question.deleteMany({ quiz: quiz._id }),
+    QuizAttempt.deleteMany({ quiz: quiz._id }),
+  ]);
+
+  await quiz.deleteOne();
+
+  res.json({
+    success: true,
+    message: "Quiz, questions and attempts deleted successfully.",
+  });
+});
+
+export const updateQuestion = asyncHandler(async (req, res) => {
+  const question = await Question.findById(req.params.questionId);
+
+  if (!question) {
+    throw new ApiError(404, "QUESTION_NOT_FOUND", "Question not found.");
+  }
+
+  if (
+    req.body.correctAnswer !== undefined &&
+    typeof req.body.correctAnswer !== "boolean"
+  ) {
+    throw new ApiError(
+      400,
+      "INVALID_CORRECT_ANSWER",
+      "correctAnswer must be true or false.",
+    );
+  }
+
+  applyFields(question, req.body, [
+    "question",
+    "correctAnswer",
+    "marks",
+    "order",
+  ]);
+
+  await question.save();
+
+  res.json({
+    success: true,
+    message: "Question updated successfully.",
+    data: question,
+  });
+});
+
+export const deleteQuestion = asyncHandler(async (req, res) => {
+  const question = await Question.findByIdAndDelete(req.params.questionId);
+
+  if (!question) {
+    throw new ApiError(404, "QUESTION_NOT_FOUND", "Question not found.");
+  }
+
+  await QuizAttempt.updateMany(
+    { "answers.question": question._id },
+    { $pull: { answers: { question: question._id } } },
+  );
+
+  res.json({
+    success: true,
+    message: "Question deleted successfully.",
   });
 });

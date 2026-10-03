@@ -1,0 +1,609 @@
+### =========================================================
+### LEARNING CAVE - NEW BACKEND API TEST
+### REST Client
+### =========================================================
+
+@baseUrl = http://localhost:5000/api/v1
+
+### ---------------------------------------------------------
+### CHANGE THESE IDs AFTER GETTING DATA
+### ---------------------------------------------------------
+
+@studentToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YWJlZjA3NmViNjNlOWNiMmEyMDY0ZTUiLCJyb2xlIjoic3R1ZGVudCIsImlhdCI6MTc5MTA0NTcxMSwiZXhwIjoxNzkzNjM3NzExfQ.oMevFlHjC5Dqe7-gYKmW62fJplf7XEcfITrvsOJDvbA
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2YTlkNjViNmYwZWU0MGM0NGNlNTg4YjQiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3OTEwNDU3ODIsImV4cCI6MTc5MzYzNzc4Mn0.i63BJAtyHBwNmDQG3ZLoEuhQE8qvjP-i9psOLEGU_Xg
+
+@orderId = 6abef63229946e1e3d902aef
+@courseId = 6a9d6d254808d293962f8ab9
+
+@liveCourseSlug = excel-live-course
+@liveProductId = 6aadb6212a522f48702fe147
+
+@moduleId = 6a9d6dbc4808d293962f8abe
+@quizId = 6aaaf9c27f289f20f398b8bc
+@questionId = 6aaafa8f7f289f20f398b8c2
+
+
+### =========================================================
+### 0. HEALTH CHECK
+### =========================================================
+
+GET http://localhost:5000/health
+
+
+### =========================================================
+### 1. STUDENT LOGIN
+### =========================================================
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "rahatulislam@gmail.com",
+  "password": "rahat601"
+}
+
+
+### =========================================================
+### 2. ADMIN LOGIN
+### =========================================================
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "admin@gmail.com",
+  "password": "Rakib@2030"
+}
+
+
+### =========================================================
+### 3. CURRENT USER - STUDENT
+### =========================================================
+
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{studentToken}}
+
+
+### =========================================================
+### 4. CURRENT USER - ADMIN
+### =========================================================
+
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 1
+### STUDENT ORDER HISTORY
+### GET /orders/me
+### =========================================================
+
+GET {{baseUrl}}/orders/me
+Authorization: Bearer {{studentToken}}
+
+### single orders
+GET {{baseUrl}}/orders/me/6abef63229946e1e3d902aef
+Authorization: Bearer {{studentToken}}
+
+
+### Pagination
+GET {{baseUrl}}/orders/me?page=1&limit=10
+Authorization: Bearer {{studentToken}}
+
+
+### Filter by order status
+GET {{baseUrl}}/orders/me?status=pending
+Authorization: Bearer {{studentToken}}
+
+
+### Filter by payment status
+GET {{baseUrl}}/orders/me?paymentStatus=paid
+Authorization: Bearer {{studentToken}}
+
+
+### Paid orders
+GET {{baseUrl}}/orders/me?page=1&limit=20&paymentStatus=paid
+Authorization: Bearer {{studentToken}}
+
+
+### =========================================================
+### NEW GAP API 2
+### STUDENT SINGLE ORDER
+### GET /orders/me/:id
+### =========================================================
+
+
+
+GET {{baseUrl}}/orders/me/{{orderId}}
+Authorization: Bearer {{studentToken}}
+
+
+
+### 1) LIVE COURSE PRODUCT CREATE
+POST {{baseUrl}}/admin/products
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "type": "live_course",
+  "title": "Excel Live Course",
+  "slug": "excel-live-course",
+  "shortDescription": "Live Microsoft Excel course",
+  "description": "Learn Microsoft Excel through live classes.",
+  "categories": [],
+  "tags": ["excel", "live"],
+  "regularPrice": 2000,
+  "salePrice": 1500,
+  "isFree": false,
+  "access": {
+    "type": "lifetime"
+  }
+}
+
+###check bath
+
+PATCH {{baseUrl}}/admin/batches/6aadb7512a522f48702fe152
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "ongoing",
+  "enrollmentClose": "2026-10-15T23:59:59.000Z"
+}
+
+### cjecl bath
+GET {{baseUrl}}/admin/live-courses/6aadb6bf2a522f48702fe14e
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 3
+### PUBLIC LIVE COURSE BATCH LIST
+### Login/token লাগবে না
+### =========================================================
+
+GET {{baseUrl}}/live-courses/{{liveCourseSlug}}/batches
+
+
+### Example
+# GET {{baseUrl}}/live-courses/excel-live-course/batches
+
+
+### =========================================================
+### NEW GAP API 4
+### LEARNER COURSE CURRICULUM
+### Module এর মধ্যে quiz object আসছে কিনা check করবে
+### =========================================================
+
+GET {{baseUrl}}/enrollments/me/{{courseId}}
+Authorization: Bearer {{studentToken}}
+
+
+### Expected curriculum structure roughly:
+###
+### "curriculum": [
+###   {
+###     "_id": "...",
+###     "title": "...",
+###     "lessons": [],
+###     "quiz": {
+###       "_id": "...",
+###       "title": "...",
+###       ...
+###     }
+###   }
+### ]
+
+
+### =========================================================
+### NEW GAP API 5
+### ADMIN - ALL USERS
+### =========================================================
+
+GET {{baseUrl}}/admin/users
+Authorization: Bearer {{adminToken}}
+
+
+### Pagination
+GET {{baseUrl}}/admin/users?page=1&limit=20
+Authorization: Bearer {{adminToken}}
+
+
+### Search
+GET {{baseUrl}}/admin/users?search=test
+Authorization: Bearer {{adminToken}}
+
+
+### Students only
+GET {{baseUrl}}/admin/users?role=student
+Authorization: Bearer {{adminToken}}
+
+
+### Instructors only
+GET {{baseUrl}}/admin/users?role=instructor
+Authorization: Bearer {{adminToken}}
+
+
+### Active users
+GET {{baseUrl}}/admin/users?status=active
+Authorization: Bearer {{adminToken}}
+
+
+### Pending instructors/users
+GET {{baseUrl}}/admin/users?status=pending
+Authorization: Bearer {{adminToken}}
+
+
+### Multiple filters
+GET {{baseUrl}}/admin/users?role=instructor&status=pending&page=1&limit=20
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 6
+### ADMIN - INSTRUCTOR LIST
+### =========================================================
+
+GET {{baseUrl}}/admin/instructors
+Authorization: Bearer {{adminToken}}
+
+
+### Pending instructors
+GET {{baseUrl}}/admin/instructors?status=pending
+Authorization: Bearer {{adminToken}}
+
+
+### Active instructors
+GET {{baseUrl}}/admin/instructors?status=active
+Authorization: Bearer {{adminToken}}
+
+
+### Search instructor
+GET {{baseUrl}}/admin/instructors?search=instructor
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 7
+### ADMIN - PAYMENT LIST
+### =========================================================
+
+GET {{baseUrl}}/admin/payments
+Authorization: Bearer {{adminToken}}
+
+
+### Pending payments
+GET {{baseUrl}}/admin/payments?status=pending
+Authorization: Bearer {{adminToken}}
+
+
+### Paid payments
+GET {{baseUrl}}/admin/payments?status=paid
+Authorization: Bearer {{adminToken}}
+
+
+### Manual payments
+GET {{baseUrl}}/admin/payments?method=manual
+Authorization: Bearer {{adminToken}}
+
+
+### SSLCommerz payments
+GET {{baseUrl}}/admin/payments?method=sslcommerz
+Authorization: Bearer {{adminToken}}
+
+
+### Search payment
+GET {{baseUrl}}/admin/payments?search=LC
+Authorization: Bearer {{adminToken}}
+
+
+### Pagination + filter
+GET {{baseUrl}}/admin/payments?page=1&limit=20&status=pending&method=manual
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 8
+### ADMIN - LIVE COURSE LIST
+### =========================================================
+
+GET {{baseUrl}}/admin/live-courses
+Authorization: Bearer {{adminToken}}
+
+
+### Published live courses
+GET {{baseUrl}}/admin/live-courses?status=published
+Authorization: Bearer {{adminToken}}
+
+
+### Draft live courses
+GET {{baseUrl}}/admin/live-courses?status=draft
+Authorization: Bearer {{adminToken}}
+
+
+### Search
+GET {{baseUrl}}/admin/live-courses?search=excel
+Authorization: Bearer {{adminToken}}
+
+
+### Pagination
+GET {{baseUrl}}/admin/live-courses?page=1&limit=20
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 9
+### ADMIN - LIVE COURSE LOOKUP BY PRODUCT ID
+### =========================================================
+
+GET {{baseUrl}}/admin/live-courses/by-product/{{liveProductId}}
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 10
+### ADMIN - MODULE -> QUIZ LOOKUP
+### =========================================================
+
+GET {{baseUrl}}/admin/modules/{{moduleId}}/quiz
+Authorization: Bearer {{adminToken}}
+
+
+### যদি quiz না থাকে expected:
+###
+### {
+###   "success": true,
+###   "data": null
+### }
+
+
+### =========================================================
+### EXISTING
+### CREATE QUIZ
+### যদি module এ quiz না থাকে
+### =========================================================
+
+PATCH {{baseUrl}}/admin/quizzes/6aaaf9c27f289f20f398b8bc
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Module 1 Quiz Updated",
+  "passPercentage": 85,
+  "showCorrectAnswer": true
+}
+
+
+### =========================================================
+### EXISTING
+### GET QUIZ BY QUIZ ID
+### =========================================================
+
+GET {{baseUrl}}/admin/quizzes/{{quizId}}
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 11
+### UPDATE QUIZ
+### =========================================================
+
+PATCH {{baseUrl}}/admin/quizzes/{{quizId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Updated Module Quiz",
+  "required": true,
+  "showResult": true,
+  "showCorrectAnswer": true,
+  "randomizeQuestions": false,
+  "active": true
+}
+
+
+### Another quiz update test
+PATCH {{baseUrl}}/admin/quizzes/{{quizId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "passPercentage": 100
+}
+
+
+### =========================================================
+### EXISTING
+### ADD TRUE/FALSE QUESTION
+### =========================================================
+
+POST {{baseUrl}}/admin/quizzes/{{quizId}}/questions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "question": "Microsoft Excel is a spreadsheet application.",
+  "correctAnswer": true,
+  "marks": 1,
+  "order": 1
+}
+
+
+### Add another question
+POST {{baseUrl}}/admin/quizzes/{{quizId}}/questions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "question": "Excel files cannot contain formulas.",
+  "correctAnswer": false,
+  "marks": 1,
+  "order": 2
+}
+
+####
+### 2) TEMP MODULE CREATE
+POST {{baseUrl}}/admin/courses/{{courseId}}/modules
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Temporary Test Module",
+  "description": "For API delete testing",
+  "order": 99,
+  "required": false
+}
+
+###
+POST {{baseUrl}}/admin/modules/6ac1846a82bba2de108ea9a7/quiz
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "title": "Temporary Delete Test Quiz",
+  "passPercentage": 80,
+  "required": false,
+  "active": true
+}
+
+###
+POST {{baseUrl}}/admin/quizzes/6ac1848e82bba2de108ea9ac/questions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "question": "This is a temporary test question.",
+  "correctAnswer": true,
+  "marks": 1,
+  "order": 1
+}
+### =========================================================
+### NEW GAP API 12
+### UPDATE QUESTION
+### =========================================================
+
+PATCH {{baseUrl}}/admin/questions/{{questionId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "question": "Microsoft Excel supports formulas.",
+  "correctAnswer": true,
+  "marks": 1,
+  "order": 1
+}
+
+####
+PATCH {{baseUrl}}/admin/questions/6aaafa8f7f289f20f398b8c2
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "question": "Microsoft Excel is a spreadsheet application.",
+  "correctAnswer": true,
+  "marks": 2,
+  "order": 1
+}
+
+
+###
+DELETE {{baseUrl}}/admin/questions/6ac184af82bba2de108ea9b0
+Authorization: Bearer {{adminToken}}
+
+###
+DELETE {{baseUrl}}/admin/quizzes/{{tempQuizId}}
+Authorization: Bearer {{adminToken}}
+### =========================================================
+### NEW GAP API 13
+### DELETE QUESTION
+### WARNING: সত্যি delete হবে
+### =========================================================
+
+
+
+
+DELETE {{baseUrl}}/admin/questions/{{questionId}}
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### NEW GAP API 14
+### DELETE QUIZ
+### WARNING:
+### Quiz + Questions + Quiz Attempts delete হবে
+### Test শেষে চালাবে
+### =========================================================
+
+DELETE {{baseUrl}}/admin/quizzes/{{quizId}}
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### EXTRA - EXISTING ENROLLMENT LIST
+### IDs বের করার জন্য
+### =========================================================
+
+GET {{baseUrl}}/enrollments/me
+Authorization: Bearer {{studentToken}}
+
+
+### =========================================================
+### EXTRA - EXISTING ADMIN RECORDED COURSES
+### courseId/moduleId বের করার জন্য
+### =========================================================
+
+GET {{baseUrl}}/admin/courses
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### EXTRA - EXISTING ADMIN PRODUCTS
+### liveProductId বের করার জন্য
+### =========================================================
+
+GET {{baseUrl}}/admin/products?type=live_course
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### EXTRA - CURRENT LIVE COURSES OWNED BY STUDENT
+### =========================================================
+
+GET {{baseUrl}}/live-courses/me
+Authorization: Bearer {{studentToken}}
+
+
+### =========================================================
+### EXTRA - STUDENT QUIZ
+### =========================================================
+
+GET {{baseUrl}}/quizzes/{{quizId}}
+Authorization: Bearer {{studentToken}}
+
+
+### =========================================================
+### EXTRA - START QUIZ ATTEMPT
+### =========================================================
+
+POST {{baseUrl}}/quizzes/{{quizId}}/attempts
+Authorization: Bearer {{studentToken}}
+
+
+### =========================================================
+### ADMIN MANUAL PAYMENT VERIFY
+### paymentId manually বসাতে হবে
+### =========================================================
+
+@paymentId = PASTE_PAYMENT_ID_HERE
+
+PATCH {{baseUrl}}/admin/payments/{{paymentId}}/verify
+Authorization: Bearer {{adminToken}}
+
+
+### =========================================================
+### ADMIN MANUAL PAYMENT REJECT
+### WARNING
+### =========================================================
+
+PATCH {{baseUrl}}/admin/payments/{{paymentId}}/reject
+Authorization: Bearer {{adminToken}}
